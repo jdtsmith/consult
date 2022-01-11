@@ -3023,10 +3023,12 @@ INITIAL is the initial input."
     (lambda (input restore)
       ;; New input provided -> Update
       (when (and input (not (equal input last-input)))
-	(mapc #'delete-overlay overlays)
-        (setq last-input input overlays nil)
-        (unless (string-match-p "\\`!? ?\\'" input) ;; empty input.
-	  (when (while-no-input
+        (if (string-match-p "\\`!? ?\\'" input) ;; empty input.
+	    (progn ; clear any old
+	      (mapc #'delete-overlay overlays)
+	      (setq overlays nil))
+	  (let ((new-overlays))
+	    (if (while-no-input
 		  (let* ((inhibit-quit restore)
 			 (not (string-prefix-p "! " input))
 			 (stripped (string-remove-prefix "! " input))
@@ -3046,11 +3048,12 @@ INITIAL is the initial input."
 			  (let ((a (if not block-beg block-end))
 				(b (if not block-end beg)))
 			    (when (/= a b)
-			      (push (consult--overlay a b 'invisible t) overlays)))
+			      (push (consult--overlay a b 'invisible t) new-overlays)))
 			  (setq block-beg beg))
 			(setq block-end end old-ind ind)))))
-	    (mapc #'delete-overlay overlays) ; Interrupted!
-	    (setq overlays nil))))
+		(mapc #'delete-overlay new-overlays) ; Interrupted!
+	      (mapc #'delete-overlay overlays)
+	      (setq overlays new-overlays last-input input)))))
       (when restore
         (cond
          ((not input)
